@@ -18,6 +18,7 @@ import logging
 import os
 import time
 import uuid
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from typing import Any, AsyncContextManager, Callable, Optional
 
@@ -75,8 +76,9 @@ class SessionManager:
 
             self.session_factory = factory_for_env()
 
-        # local LRU-ish cache
-        self._session_cache: dict[str, SessionMetadata] = {}
+        # bounded LRU in-process cache
+        self._max_cache_size = 1024
+        self._session_cache: OrderedDict[str, SessionMetadata] = OrderedDict()
         self._cache_lock = asyncio.Lock()
 
         logger.debug("SessionManager initialised for sandbox: %s", self.sandbox_id)
@@ -125,7 +127,7 @@ class SessionManager:
         await self._store_session_metadata(metadata)
 
         async with self._cache_lock:
-            self._session_cache[session_id] = metadata
+            self._cache_put(session_id, metadata)
 
         logger.debug("Session allocated: %s (user=%s)", session_id, user_id)
         return session_id
@@ -140,7 +142,7 @@ class SessionManager:
                 return True
             return False
         except Exception as err:
-            logger.debug("Session validation failed for %s: %s", session_id, err)
+            logger.warning("Session validation failed for %s: %s", session_id, err)
             return False
 
     async def get_session_info(self, session_id: str) -> Optional[dict[str, Any]]:
@@ -182,7 +184,7 @@ class SessionManager:
             await self._store_session_metadata(metadata)
 
             async with self._cache_lock:
-                self._session_cache[session_id] = metadata
+                self._cache_put(session_id, metadata)
             return True
         except Exception as err:
             logger.error(
@@ -207,7 +209,7 @@ class SessionManager:
             await self._store_session_metadata(metadata)
 
             async with self._cache_lock:
-                self._session_cache[session_id] = metadata
+                self._cache_put(session_id, metadata)
             logger.debug("Extended session %s by %dh", session_id, additional_hours)
             return True
         except Exception as err:
@@ -234,6 +236,16 @@ class SessionManager:
     # ──────────────────────────────────────────────────────────────────────
     # Internal helpers
     # ──────────────────────────────────────────────────────────────────────
+
+    def _cache_put(self, session_id: str, metadata: SessionMetadata) -> None:
+        """Insert/update an entry and evict the LRU entry if over capacity.
+
+        Must be called while holding _cache_lock.
+        """
+        self._session_cache[session_id] = metadata
+        self._session_cache.move_to_end(session_id)
+        if len(self._session_cache) > self._max_cache_size:
+            self._session_cache.popitem(last=False)
 
     def _generate_session_id(self, user_id: Optional[str] = None) -> str:
         timestamp = int(time.time())
@@ -266,7 +278,7 @@ class SessionManager:
                 return None
             # re-cache
             async with self._cache_lock:
-                self._session_cache[session_id] = metadata
+                self._cache_put(session_id, metadata)
             return metadata
         except Exception as err:
             logger.debug("Failed fetching session %s: %s", session_id, err)
@@ -296,7 +308,7 @@ class SessionManager:
                 await session.setex(key, ttl, json.dumps(metadata.to_dict()))
 
             async with self._cache_lock:
-                self._session_cache[metadata.session_id] = metadata
+                self._cache_put(metadata.session_id, metadata)
         except Exception as err:
             logger.error("Session storage failed for %s: %s", metadata.session_id, err)
             raise SessionError(f"Session storage failed: {err}") from err
@@ -320,6 +332,7 @@ class SessionManager:
     def get_cache_stats(self) -> dict[str, Any]:
         return {
             "cached_sessions": len(self._session_cache),
+            "max_cache_size": self._max_cache_size,
             "sandbox_id": self.sandbox_id,
             "default_ttl_hours": self.default_ttl_hours,
         }

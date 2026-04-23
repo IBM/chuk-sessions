@@ -15,6 +15,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field, model_validator
 
 from .enums import SessionStatus, TokenType
+from .utils import utc_now_iso
 
 
 class SessionMetadata(BaseModel):
@@ -50,7 +51,7 @@ class SessionMetadata(BaseModel):
     @model_validator(mode="after")
     def set_default_timestamps(self) -> SessionMetadata:
         """Set default timestamps if not provided."""
-        now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now_iso = utc_now_iso()
         if self.created_at is None:
             self.created_at = now_iso
         if self.last_accessed is None:
@@ -66,9 +67,7 @@ class SessionMetadata(BaseModel):
 
     def touch(self) -> None:
         """Refresh the last-accessed timestamp to 'now'."""
-        self.last_accessed = (
-            datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        )
+        self.last_accessed = utc_now_iso()
 
     # Backward compatibility methods
     def to_dict(self) -> dict[str, Any]:

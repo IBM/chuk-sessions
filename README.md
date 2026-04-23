@@ -4,7 +4,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Tests](https://img.shields.io/badge/tests-202%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-264%20passing-brightgreen.svg)]()
 [![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen.svg)]()
 
 Dead simple session management with automatic expiration, multiple storage backends, and multi-tenant isolation. Perfect for web apps, APIs, and any system needing reliable sessions.
@@ -117,14 +117,15 @@ Session Lifecycle:
     [Done]
 ```
 
-## ✨ What's New in v0.5
+## ✨ What's New in v0.6
 
 - **🎯 Pydantic Native**: All models are Pydantic-based with automatic validation
 - **🔒 Type-Safe Enums**: No more magic strings - `SessionStatus.ACTIVE`, `ProviderType.REDIS`
 - **📦 Exported Types**: Full IDE autocomplete for `SessionMetadata`, `CSRFTokenInfo`, etc.
 - **⚡ Async Native**: Built from ground-up for async/await
 - **🔄 Backward Compatible**: Existing code works unchanged
-- **✅ 90%+ Test Coverage**: 202 tests, battle-tested
+- **🗂️ Bounded LRU Cache**: In-process session cache is capped at 1024 entries (evicts LRU) — no unbounded memory growth
+- **✅ 90%+ Test Coverage**: 264 tests, battle-tested
 
 ```python
 from chuk_sessions import SessionManager, SessionStatus, SessionMetadata

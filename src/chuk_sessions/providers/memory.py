@@ -5,11 +5,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Dict, Tuple, Any, Callable, AsyncContextManager
+
+logger = logging.getLogger(__name__)
 
 # Default TTL from environment or 1 hour
 _DEFAULT_TTL = int(os.getenv("SESSION_DEFAULT_TTL", "3600"))
@@ -37,6 +40,7 @@ class _MemorySession:
             value, exp = entry
             if exp < time.time():
                 del _MemorySession._cache[key]
+                logger.debug("Memory session key expired and evicted: %s", key)
                 return None
             return value
 
