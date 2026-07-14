@@ -173,7 +173,7 @@ wheels = [
 
 [[package]]
 name = "chuk-sessions"
-version = "0.6.2"
+version = "0.6.3"
 source = { editable = "." }
 dependencies = [
     { name = "csrf" },
